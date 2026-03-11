@@ -35,6 +35,17 @@ To install the **Autocomplete** plugin into your Errata instance:
 
 After installing, restart your Errata development server or restart the application to register the new plugin.
 
+## Updating
+
+If you installed via Git, you can update the plugin by navigating to the plugin's directory and pulling the latest changes:
+
+```bash
+cd plugins/autocomplete-errata
+git pull
+```
+
+**Note:** You generally do not need to restart Errata after updating a plugin unless there are major changes, which will be announced beforehand.
+
 ## Usage
 
 1. Enable the **Autocomplete** plugin in your story settings.
