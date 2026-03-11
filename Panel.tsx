@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Loader2, Lock } from 'lucide-react'
 import type { PluginPanelProps } from '@/lib/plugin-panels'
+import { api } from '@/lib/api'
 
 // Helper to generate a fragment ID similar to how the server does it
 const CONSONANTS = 'bdfgkmnprstvz'
@@ -79,9 +80,7 @@ export function AutocompletePanel({ storyId }: PluginPanelProps) {
     setSuccess(false)
     try {
       // 1. Fetch fragments from Errata API
-      const fragmentsRes = await fetch(`${window.location.origin}/api/stories/${storyId}/fragments`)
-      if (!fragmentsRes.ok) throw new Error('Failed to fetch fragments from story')
-      const fragments = await fragmentsRes.json()
+      const fragments = await api.fragments.list(storyId)
 
       // 2. Prompt Assembly (Ported from server-side)
       const proseFragments = fragments.filter((f: any) => f.type === 'prose')
@@ -150,46 +149,24 @@ export function AutocompletePanel({ storyId }: PluginPanelProps) {
       if (appendToLastFragment) {
         const lastFragment = proseFragments[proseFragments.length - 1]
         if (lastFragment) {
-          const patchRes = await fetch(`${window.location.origin}/api/stories/${storyId}/fragments/${lastFragment.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              content: `${lastFragment.content}${generatedText}`,
-            })
+          await api.fragments.edit(storyId, lastFragment.id, {
+            oldText: lastFragment.content,
+            newText: `${lastFragment.content}${generatedText}`,
           })
-          if (!patchRes.ok) throw new Error('Failed to update fragment')
         }
       } else {
         const newFragmentId = generateFragmentId('prose')
-        const now = new Date().toISOString()
-        const createRes = await fetch(`${window.location.origin}/api/stories/${storyId}/fragments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: newFragmentId,
-            type: 'prose',
-            name: 'Autocomplete',
-            description: 'Generated via autocomplete plugin',
-            content: generatedText,
-            tags: [],
-            refs: [],
-            sticky: false,
-            placement: 'user',
-            createdAt: now,
-            updatedAt: now,
-            order: 0,
-            meta: {},
-            version: 1,
-          })
+        await api.fragments.create(storyId, {
+          id: newFragmentId,
+          type: 'prose',
+          name: 'Autocomplete',
+          description: 'Generated via autocomplete plugin',
+          content: generatedText,
+          tags: [],
+          meta: {},
         })
-        if (!createRes.ok) throw new Error('Failed to create new fragment')
 
-        const chainRes = await fetch(`${window.location.origin}/api/stories/${storyId}/prose-chain`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fragmentId: newFragmentId })
-        })
-        if (!chainRes.ok) throw new Error('Failed to add fragment to prose chain')
+        await api.proseChain.addSection(storyId, newFragmentId)
       }
 
       // 5. Invalidate
