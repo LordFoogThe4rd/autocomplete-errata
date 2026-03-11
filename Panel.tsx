@@ -80,17 +80,20 @@ export function AutocompletePanel({ storyId }: PluginPanelProps) {
     setSuccess(false)
     try {
       // 1. Fetch fragments from Errata API
-      const fragments = await api.fragments.list(storyId)
+      const proseFragments = await api.fragments.list(storyId, 'prose')
 
       // 2. Prompt Assembly (Ported from server-side)
-      const proseFragments = fragments.filter((f: any) => f.type === 'prose')
       const proseContent = proseFragments.map((f: any) => f.content).join('\n')
 
       let source = proseContent
       
       if (includeMetaFragments) {
-        const metaContent = fragments
-          .filter((f: any) => ['guideline', 'character', 'knowledge'].includes(f.type))
+        const [guidelines, characters, knowledge] = await Promise.all([
+          api.fragments.list(storyId, 'guideline'),
+          api.fragments.list(storyId, 'character'),
+          api.fragments.list(storyId, 'knowledge')
+        ])
+        const metaContent = [...guidelines, ...characters, ...knowledge]
           .map((f: any) => f.content)
           .join('\n')
 
